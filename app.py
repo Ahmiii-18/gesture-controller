@@ -6,7 +6,6 @@ import time
 import av
 import cv2
 import numpy as np
-import pyautogui
 import streamlit as st
 from streamlit_webrtc import WebRtcMode, VideoProcessorBase, webrtc_streamer
 
@@ -28,6 +27,19 @@ if platform.system() == "Windows":
         AUDIO_AVAILABLE = True
     except Exception as e:
         print(f"PyCAW Audio Setup Note: {e}")
+
+# --- Optional Keyboard/Mouse Automation (PyAutoGUI) ---
+# PyAutoGUI (via mouseinfo) touches the X11 DISPLAY at import time, which
+# doesn't exist on headless cloud containers (e.g. Streamlit Cloud). Guard
+# the import so the app still runs there; gestures that rely on it simply
+# become no-ops in that environment.
+AUTOMATION_AVAILABLE = False
+try:
+    import pyautogui
+    AUTOMATION_AVAILABLE = True
+except Exception as e:
+    pyautogui = None
+    print(f"PyAutoGUI Setup Note: {e}")
 
 # --- MediaPipe Solutions Setup ---
 import mediapipe as mp
@@ -226,6 +238,9 @@ st.title("🎮 Multi-Modal Dynamic Gesture Controller")
 
 if not AUDIO_AVAILABLE:
     st.info("ℹ️ Running in cloud/simulation mode. System audio controls are active on local Windows machines.")
+
+if not AUTOMATION_AVAILABLE:
+    st.info("ℹ️ Keyboard/mouse actions (play-pause, scroll) require a local desktop session and are disabled in this cloud deployment.")
 
 # --- Interactive Sidebar Setup ---
 st.sidebar.header("📷 Camera & Resolution")
