@@ -1,7 +1,7 @@
+import platform
 import math
 import threading
 import time
-from ctypes import POINTER, cast
 
 import av
 import cv2
@@ -10,32 +10,35 @@ import pyautogui
 import streamlit as st
 from streamlit_webrtc import WebRtcMode, VideoProcessorBase, webrtc_streamer
 
-# --- Windows System Audio Setup (PyCAW) ---
-try:
-    from comtypes import CLSCTX_ALL
-    from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+# --- Cross-Platform System Audio Setup (PyCAW) ---
+AUDIO_AVAILABLE = False
+if platform.system() == "Windows":
+    try:
+        from ctypes import POINTER, cast
+        from comtypes import CLSCTX_ALL
+        from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 
-    devices = AudioUtilities.GetSpeakers()
-    interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-    volume_control = cast(interface, POINTER(IAudioEndpointVolume))
-    vol_range = volume_control.GetVolumeRange()
-    min_vol, max_vol = vol_range[0], vol_range[1]
-    AUDIO_AVAILABLE = True
-except Exception as e:
-    AUDIO_AVAILABLE = False
-    print(f"PyCAW Audio Setup Note: {e}")
+        devices = AudioUtilities.GetSpeakers()
+        interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+        volume_control = cast(interface, POINTER(IAudioEndpointVolume))
+        vol_range = volume_control.GetVolumeRange()
+        min_vol, max_vol = vol_range[0], vol_range[1]
+        AUDIO_AVAILABLE = True
+    except Exception as e:
+        print(f"PyCAW Audio Setup Note: {e}")
 
 # --- MediaPipe Solutions Setup ---
 import mediapipe as mp
 
 try:
-    import mediapipe.solutions.hands as mp_hands
-    import mediapipe.solutions.drawing_utils as mp_draw
-    import mediapipe.solutions.drawing_styles as mp_styles
-except (AttributeError, ModuleNotFoundError):
     mp_hands = mp.solutions.hands
     mp_draw = mp.solutions.drawing_utils
     mp_styles = mp.solutions.drawing_styles
+except AttributeError:
+    import mediapipe.python.solutions.hands as mp_hands
+    import mediapipe.python.solutions.drawing_utils as mp_draw
+    import mediapipe.python.solutions.drawing_styles as mp_styles
+
 
 class GestureControllerProcessor(VideoProcessorBase):
     def __init__(self):
@@ -113,7 +116,10 @@ class GestureControllerProcessor(VideoProcessorBase):
                 # --- 1. PLAY / PAUSE (Fist Gesture) ---
                 if self.is_fist(hand_landmarks):
                     if curr_time - self.last_fist_time > 1.2:  # 1.2 second debounce
-                        pyautogui.press("space")
+                        try:
+                            pyautogui.press("space")
+                        except Exception:
+                            pass
                         self.last_fist_time = curr_time
 
                     status_text = "ACTION: PLAY / PAUSE"
@@ -145,7 +151,6 @@ class GestureControllerProcessor(VideoProcessorBase):
 
                     distance = math.hypot(x2 - x1, y2 - y1)
                     
-                    # Dynamically scale min/max target range based on frame width
                     min_dist = int(25 * scale)
                     max_dist = int(220 * scale)
                     raw_vol = np.interp(distance, [min_dist, max_dist], [0, 100])
@@ -176,7 +181,10 @@ class GestureControllerProcessor(VideoProcessorBase):
                             deadzone_px = int(12 * scale)
                             if abs(dy) > deadzone_px:
                                 scroll_amount = -int(dy * 4)
-                                pyautogui.scroll(scroll_amount)
+                                try:
+                                    pyautogui.scroll(scroll_amount)
+                                except Exception:
+                                    pass
                                 scroll_action = "SCROLL UP" if scroll_amount > 0 else "SCROLL DOWN"
                                 cv2.putText(
                                     img,
@@ -200,11 +208,8 @@ class GestureControllerProcessor(VideoProcessorBase):
 
         bar_y = int(np.interp(self.smooth_vol, [0, 100], [gauge_bottom, gauge_top]))
         
-        # Border box
         cv2.rectangle(img, (gauge_left, gauge_top), (gauge_right, gauge_bottom), (0, 255, 0), thickness, lineType=cv2.LINE_AA)
-        # Filled volume Level
         cv2.rectangle(img, (gauge_left, bar_y), (gauge_right, gauge_bottom), (0, 255, 0), cv2.FILLED, lineType=cv2.LINE_AA)
-        # Text label
         cv2.putText(
             img,
             f"{int(self.smooth_vol)}%",
@@ -224,7 +229,7 @@ st.set_page_config(page_title="High-Precision Gesture Controller", layout="wide"
 st.title("🎮 Multi-Modal Dynamic Gesture Controller")
 
 if not AUDIO_AVAILABLE:
-    st.warning("⚠️ PyCAW Master Audio control is offline. Volume HUD running in simulation mode.")
+    st.info("ℹ️ Running in cloud/simulation mode. System audio controls are active on local Windows machines.")
 
 st.sidebar.header("🎛️ Dynamic Filter & Sensitivity")
 
@@ -234,7 +239,6 @@ alpha_min = st.sidebar.slider(
     max_value=0.20,
     value=0.05,
     step=0.01,
-    help="Lower values suppress minor hand tremors when static.",
 )
 
 alpha_max = st.sidebar.slider(
@@ -243,7 +247,6 @@ alpha_max = st.sidebar.slider(
     max_value=1.00,
     value=0.85,
     step=0.05,
-    help="Higher values optimize response time during rapid movements.",
 )
 
 deadzone = st.sidebar.slider(
@@ -252,10 +255,8 @@ deadzone = st.sidebar.slider(
     max_value=5.0,
     value=1.5,
     step=0.1,
-    help="Ignores micro movements below this speed threshold.",
 )
 
-# Configure Streamlit WebRTC Streamer
 ctx = webrtc_streamer(
     key="gesture-control-pro",
     mode=WebRtcMode.SENDRECV,
