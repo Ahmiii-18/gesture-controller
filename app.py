@@ -32,16 +32,10 @@ try:
     import mediapipe.solutions.hands as mp_hands
     import mediapipe.solutions.drawing_utils as mp_draw
     import mediapipe.solutions.drawing_styles as mp_styles
-except ModuleNotFoundError:
-    try:
-        mp_hands = mp.solutions.hands
-        mp_draw = mp.solutions.drawing_utils
-        mp_styles = mp.solutions.drawing_styles
-    except AttributeError:
-        import mediapipe.python.solutions.hands as mp_hands
-        import mediapipe.python.solutions.drawing_utils as mp_draw
-        import mediapipe.python.solutions.drawing_styles as mp_styles
-
+except (AttributeError, ModuleNotFoundError):
+    mp_hands = mp.solutions.hands
+    mp_draw = mp.solutions.drawing_utils
+    mp_styles = mp.solutions.drawing_styles
 
 class GestureControllerProcessor(VideoProcessorBase):
     def __init__(self):
