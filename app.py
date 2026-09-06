@@ -14,6 +14,8 @@ from streamlit_webrtc import WebRtcMode, VideoProcessorBase, webrtc_streamer
 AUDIO_AVAILABLE = False
 if platform.system() == "Windows":
     try:
+        import comtypes
+        comtypes.CoInitialize()  # Initialize COM thread apartment for Windows audio
         from ctypes import POINTER, cast
         from comtypes import CLSCTX_ALL
         from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
