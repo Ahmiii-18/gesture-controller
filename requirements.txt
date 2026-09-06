@@ -1,10 +1,23 @@
-streamlit>=1.38.0
-streamlit-webrtc
+# --- Core app ---
+streamlit==1.60.0
+streamlit-webrtc==0.77.0
+av==17.1.0
+
+# --- Computer vision / hand tracking ---
+# opencv-python-headless and numpy are pinned together deliberately:
+# this opencv build's ABI predates NumPy 2.0, and an unpinned numpy
+# resolves to 2.x and crashes on import ("_ARRAY_API not found").
+# mediapipe also pulls in opencv-contrib-python as a transitive dep;
+# keep numpy<2 until both wheels ship NumPy-2-compatible builds.
 opencv-python-headless==4.8.1.78
+numpy<2
 mediapipe==0.10.14
 protobuf==4.25.9
+
+# --- Optional: local-desktop-only OS control ---
+# These only function with a real display/session and are guarded at
+# import time in app.py, so the app still runs fine without them on
+# headless hosts (e.g. Streamlit Community Cloud).
 pyautogui
 pycaw; sys_platform == "win32"
 comtypes; sys_platform == "win32"
-numpy<2
-av
