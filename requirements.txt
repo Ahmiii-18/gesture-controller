@@ -8,3 +8,4 @@ pycaw
 comtypes
 numpy
 av
+cv2
